@@ -1,0 +1,544 @@
+<!doctype html>
+<!--
+  Carteras recomendadas · Joven Inversor
+  Archivo HTML autocontenido. Funciona de dos formas:
+  1) Abriéndolo directo en el navegador (Chrome, Edge, Safari): el PDF se descarga normal.
+  2) Publicado como artefacto en claude.ai: publicarlo con la capacidad "downloads" activada
+     (capabilities: {downloads: true}) para que el botón «Descargar PDF» funcione.
+  Necesita internet para cargar la tipografía (Google Fonts) y el generador de PDF (jsPDF desde jsDelivr).
+  Las fichas se guardan en el navegador de quien lo usa (localStorage).
+  Las 9 carteras modelo están en la constante MODELOS del script.
+-->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Carteras Joven Inversor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: barra de fichas arriba, formulario en bloques numerados (el orden de la llamada), resumen de cartera fijo en la columna derecha en desktop */
+:root{
+  --bg:#F7F6FF; --surface:#FFFFFF; --surface-2:#EFEDFA; --line:#E1DEF0;
+  --fg:#292929; --muted:#6E6A80; --accent:#FF9C00; --accent-ink:#1d1300; --accent-soft:#FFF1DA;
+  --buy:#128A5C; --buy-bg:#E3F6EE; --sell:#C8372D; --sell-bg:#FCE8E6; --hold:#6E6A80; --hold-bg:#EEEDF3;
+  --warn:#B86E00;
+  --f-display:"Poppins",system-ui,sans-serif; --f-body:"Poppins",system-ui,sans-serif; --f-num:"JetBrains Mono",ui-monospace,monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121118; --surface:#1B1A23; --surface-2:#24222F; --line:#322F40;
+  --fg:#F1EFF8; --muted:#A29EB5; --accent:#FFA51F; --accent-ink:#1d1300; --accent-soft:#3A2A10;
+  --buy:#4CD39B; --buy-bg:#17392C; --sell:#FF7A6E; --sell-bg:#43201D; --hold:#B7B3C8; --hold-bg:#2A2835; --warn:#FFB84D;
+  color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121118; --surface:#1B1A23; --surface-2:#24222F; --line:#322F40;
+  --fg:#F1EFF8; --muted:#A29EB5; --accent:#FFA51F; --accent-ink:#1d1300; --accent-soft:#3A2A10;
+  --buy:#4CD39B; --buy-bg:#17392C; --sell:#FF7A6E; --sell-bg:#43201D; --hold:#B7B3C8; --hold-bg:#2A2835; --warn:#FFB84D;
+  color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px;padding-block:0 60px}
+header.top{display:flex;align-items:center;gap:14px;padding-block:18px;flex-wrap:wrap}
+header.top svg{width:38px;height:38px;flex:none}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:20px;margin:0;letter-spacing:-.01em;line-height:1.1}
+.brand p{margin:0;color:var(--muted);font-size:12.5px}
+.top .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+button,.btn{font:inherit;cursor:pointer;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);padding:8px 16px;font-weight:600;font-size:13px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--muted);padding:6px 10px}
+.btn-ghost:hover{color:var(--sell);border-color:transparent}
+
+/* fichas */
+.fichas{display:flex;gap:8px;align-items:center;overflow-x:auto;padding-bottom:6px;margin-bottom:18px}
+.ficha{white-space:nowrap;border-radius:999px;padding:7px 14px;font-weight:500;font-size:13px;background:var(--surface);border:1px solid var(--line)}
+.ficha[aria-current="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.fichas .lbl{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:4px;white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;min-width:0}
+.sec-h{display:flex;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.sec-h .n{font-family:var(--f-display);font-weight:800;color:var(--accent);font-size:15px}
+.sec-h h2{font-family:var(--f-display);font-size:16px;font-weight:700;margin:0;text-wrap:balance}
+.sec-h .call{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2);padding:2px 9px;border-radius:999px}
+.hint{color:var(--muted);font-size:12.5px;margin:0}
+
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field.wide{grid-column:1/-1}
+label,.lab{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid transparent;border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input:hover,select:hover,textarea:hover{border-color:var(--line)}
+textarea{resize:vertical;min-height:38px}
+input[type=number]{font-family:var(--f-num);font-size:13px;text-align:right}
+
+/* matriz de carteras */
+.matrix{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.matrix .ax{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;display:flex;align-items:flex-end;padding:0 2px}
+.matrix .ay{font-size:11.5px;font-weight:600;color:var(--muted);display:flex;align-items:center;padding-right:6px}
+.mcell{border-radius:10px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:7px;background:var(--surface-2);border:2px solid transparent;font-weight:500}
+.mcell:hover{border-color:var(--line)}
+.mcell[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.mcell .mt{font-size:11.5px;font-weight:600;line-height:1.2}
+.mbar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
+.mbar i{display:block;height:100%}
+@media (max-width:560px){.matrix{grid-template-columns:repeat(3,minmax(0,1fr))}.matrix .ax:first-child,.matrix .ay{display:none}.matrix .ax{justify-content:center}}
+
+/* tablas */
+.tbl-wrap{overflow-x:auto;margin-inline:-6px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;text-align:left;padding:6px;white-space:nowrap;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+tfoot td{border-bottom:none;font-weight:700;padding-top:10px}
+td.num,th.num{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+th.num{font-family:var(--f-body)}
+#holdings td input,#holdings td select{padding:6px 8px}
+#holdings td:nth-child(1){min-width:150px}
+#holdings td:nth-child(2){min-width:130px}
+#holdings td:nth-child(3){min-width:80px}
+#holdings td:nth-child(4){min-width:120px}
+#holdings td:nth-child(7){min-width:140px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:0}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;border-radius:999px;padding:2px 10px}
+.pill.Comprar{background:var(--buy-bg);color:var(--buy)}
+.pill.Vender{background:var(--sell-bg);color:var(--sell)}
+.pill.Mantener{background:var(--hold-bg);color:var(--hold)}
+.pos{color:var(--buy)} .neg{color:var(--sell)}
+.row-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.inline .field{flex:0 1 220px}
+#rebal input{width:78px;padding:5px 7px}
+.check{font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:999px;display:inline-block}
+.check.ok{background:var(--buy-bg);color:var(--buy)}
+.check.bad{background:var(--sell-bg);color:var(--sell)}
+
+/* instrumentos */
+.inst{display:grid;grid-template-columns:150px minmax(0,1fr) 70px;gap:8px 14px;align-items:start}
+.inst .cls{font-weight:600;font-size:13px;padding-top:8px}
+.inst .pc{font-family:var(--f-num);text-align:right;padding-top:8px;font-size:13px}
+.inst .univ{grid-column:2/4;margin-top:-4px;font-size:11.5px;color:var(--muted)}
+@media (max-width:560px){.inst{grid-template-columns:minmax(0,1fr) 60px}.inst .cls{grid-column:1}.inst .pc{grid-column:2;grid-row:auto}.inst textarea{grid-column:1/-1}.inst .univ{grid-column:1/-1}}
+
+/* llamadas */
+.calls{display:flex;flex-direction:column;gap:8px}
+.callrow{display:grid;grid-template-columns:minmax(0,1.3fr) 140px minmax(0,1fr);gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.callrow:last-child{border-bottom:none}
+.callrow b{font-size:13px;display:block}
+.callrow span{font-size:12px;color:var(--muted)}
+@media (max-width:640px){.callrow{grid-template-columns:minmax(0,1fr)}}
+
+/* resumen lateral */
+aside.summary{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);display:flex;flex-direction:column;gap:14px}
+@media (max-width:980px){aside.summary{position:static}}
+.sum-card{background:var(--fg);color:var(--bg);border-radius:var(--r);padding:20px}
+.sum-card .eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;opacity:.65;font-weight:600}
+.sum-card .model{font-family:var(--f-display);font-weight:800;font-size:22px;line-height:1.15;margin:2px 0 2px}
+.sum-card .model em{font-style:normal;color:var(--accent)}
+.sum-card .client{font-size:13px;opacity:.8}
+.donut-row{display:flex;gap:16px;align-items:center;margin-top:16px}
+.donut-row svg{width:128px;height:128px;flex:none}
+.legend{display:flex;flex-direction:column;gap:4px;font-size:12.5px;min-width:0;flex:1}
+.legend div{display:flex;justify-content:space-between;gap:8px}
+.legend b{font-family:var(--f-num);font-weight:500}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:color-mix(in srgb,var(--bg) 20%,transparent);border-radius:8px;overflow:hidden;margin-top:16px}
+.kpis div{background:var(--fg);padding:8px 10px 0}
+.kpis small{display:block;font-size:10.5px;opacity:.65;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kpis strong{font-family:var(--f-num);font-size:15px;font-weight:500}
+.cmp{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.cmp h3{margin:0 0 10px;font-size:13px;font-weight:700}
+.cmp .lane{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:center;margin-bottom:8px;font-size:11.5px;color:var(--muted);font-weight:600}
+.cmp .mbar{height:14px;border-radius:5px}
+.pdf-box{background:var(--accent-soft);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.pdf-box label.opt{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--fg);font-weight:500}
+.pdf-box input[type=checkbox]{width:auto;accent-color:var(--accent)}
+.pdf-box .btn-primary{padding:11px 16px;font-size:14px}
+.status{font-size:12px;color:var(--muted);min-height:1em}
+.saved{font-size:11.5px;color:var(--muted)}
+.empty{color:var(--muted);font-size:12.5px;padding:10px 0}
+@media (prefers-reduced-motion:no-preference){.mcell,.ficha,button{transition:border-color .15s,background .15s}}
+@media (max-width:560px){.wrap{padding-inline:16px}section.card{padding:16px}}
+</style>
+
+</head>
+<body style="margin:0">
+<div class="wrap">
+<header class="top">
+  <svg viewBox="0 0 47 47" aria-hidden="true"><path d="M13.5 0H7V36.5C7 40.1 5.66667 41 5 41H0V46.5C11.6 48.5 13.8333 43 13.5 40V0Z" fill="#FF9C00"/><path d="M22.5 0H16.5V6.5H22.5V0Z" fill="#FF9C00"/><path d="M22.5 8H16.5V46.5H22.5V8Z" fill="#FF9C00"/><path d="M33 0H39.5V36.5C39.5 40.1 40.8333 41 41.5 41H46.5V46.5C34.9 48.5 32.6667 43 33 40V0Z" fill="#FF9C00"/><path d="M24 0H30V6.5H24V0Z" fill="#FF9C00"/><path d="M24 8H30V46.5H24V8Z" fill="#FF9C00"/></svg>
+  <div class="brand"><h1>Carteras recomendadas</h1><p>Joven Inversor · Ficha de cliente para asesores</p></div>
+  <div class="actions">
+    <button id="bNew" type="button">+ Nueva ficha</button>
+    <button id="bDup" type="button">Duplicar</button>
+    <button id="bDel" type="button" class="btn-ghost">Eliminar ficha</button>
+  </div>
+</header>
+<div class="fichas" id="fichas"></div>
+<div id="delConfirm" class="inline" hidden><span class="hint">¿Eliminar esta ficha? No se puede deshacer.</span><button id="bDelYes" type="button" class="btn-primary">Sí, eliminar</button><button id="bDelNo" type="button">Cancelar</button></div>
+
+<div class="grid">
+<div class="col">
+
+<section class="card" id="s1">
+  <div class="sec-h"><span class="n">1</span><h2>Perfil del cliente</h2><span class="call">Llamada 1</span></div>
+  <div class="fields">
+    <div class="field"><label for="cliente">Cliente</label><input id="cliente" data-k="cliente" placeholder="Nombre y apellido"></div>
+    <div class="field"><label for="asesor">Asesor</label><input id="asesor" data-k="asesor" list="asesores" placeholder="Quién lleva la cuenta"></div>
+    <div class="field"><label for="fecha">Fecha</label><input id="fecha" data-k="fecha" type="date"></div>
+    <div class="field"><label for="horizonte">Horizonte temporal</label><select id="horizonte" data-k="horizonte"><option value="">Elegir…</option><option>Corto plazo (hasta 1 año)</option><option>Mediano plazo (1–5 años)</option><option>Largo plazo (+5 años)</option></select></div>
+    <div class="field"><label for="riesgo">Perfil de riesgo</label><select id="riesgo" data-k="riesgo"><option value="">Elegir…</option><option>Conservador</option><option>Moderado</option><option>Agresivo</option></select></div>
+    <div class="field"><label for="inversion">Perfil de inversión</label><select id="inversion" data-k="inversion"><option value="">Elegir…</option><option>Tradicional</option><option>Híbrido</option><option>Crypto</option></select></div>
+    <div class="field"><label for="conocimiento">Conocimiento</label><select id="conocimiento" data-k="conocimiento"><option value="">Elegir…</option><option>Principiante</option><option>Intermedio</option><option>Avanzado</option></select></div>
+    <div class="field wide"><label for="objetivo">Objetivo</label><textarea id="objetivo" data-k="objetivo" rows="2" placeholder="Qué quiere lograr el cliente con su inversión"></textarea></div>
+  </div>
+  <datalist id="asesores"><option>Selene Najle</option><option>Rodrigo Latorre</option><option>Juan Cortizo</option></datalist>
+  <div class="matrix" id="matrix" aria-label="Las 9 carteras modelo"></div>
+  <p class="hint" style="margin-top:8px">Tocá una cartera para asignarla, o elegí los perfiles arriba.</p>
+</section>
+
+<section class="card" id="s2">
+  <div class="sec-h"><span class="n">2</span><h2>Cartera actual</h2><span class="call">desde la plataforma</span></div>
+  <div class="inline">
+    <div class="field"><label for="tc">Tipo de cambio (ARS por USD)</label><input id="tc" data-k="tc" type="number" min="0" step="1"></div>
+    <div class="field"><label for="aporte">Aporte nuevo a invertir (USD)</label><input id="aporte" data-k="aporte" type="number" min="0" step="100"></div>
+    <p class="hint" style="flex:1 1 200px">Usá el dólar del día para valuar lo que está en pesos. El aporte suma al total a invertir.</p>
+  </div>
+  <div class="tbl-wrap">
+  <table id="holdings">
+    <thead><tr><th>Activo</th><th>Clase</th><th>Moneda</th><th class="num">Monto</th><th class="num">Valor USD</th><th class="num">Peso</th><th>Notas</th><th></th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr><td colspan="4">Total cartera actual</td><td class="num" id="totUsd"></td><td class="num" id="totPct"></td><td colspan="2"></td></tr></tfoot>
+  </table>
+  </div>
+  <div class="row-tools"><button id="bAddRow" type="button">+ Agregar activo</button><span class="hint" id="rowsEmpty"></span></div>
+</section>
+
+<section class="card" id="s3">
+  <div class="sec-h"><span class="n">3</span><h2>Actual vs. sugerida y rebalanceo</h2><span class="call">Llamada 2</span></div>
+  <div class="inline" style="justify-content:space-between">
+    <p class="hint">El % objetivo viene de la cartera modelo. Podés ajustarlo por clase para este cliente.</p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span id="sumCheck" class="check"></span><button id="bReset" type="button">Volver a la cartera modelo</button></div>
+  </div>
+  <div class="tbl-wrap">
+  <table id="rebal">
+    <thead><tr><th>Clase de activo</th><th class="num">% actual</th><th class="num">% modelo</th><th class="num">% objetivo</th><th class="num">Monto objetivo</th><th class="num">Diferencia</th><th>Acción</th></tr></thead>
+    <tbody></tbody>
+    <tfoot><tr><td>Total</td><td class="num" id="rtA"></td><td class="num" id="rtM"></td><td class="num" id="rtO"></td><td class="num" id="rtMonto"></td><td class="num" id="rtDif"></td><td></td></tr></tfoot>
+  </table>
+  </div>
+</section>
+
+<section class="card" id="s4">
+  <div class="sec-h"><span class="n">4</span><h2>Instrumentos sugeridos por clase</h2><span class="call">Llamada 2</span></div>
+  <div class="inst" id="inst"></div>
+</section>
+
+<section class="card" id="s5">
+  <div class="sec-h"><span class="n">5</span><h2>Fondo de emergencia</h2><span class="call">opcional</span></div>
+  <div class="fields">
+    <div class="field"><label for="gasto">Gasto mensual (USD)</label><input id="gasto" data-k="gasto" type="number" min="0" step="50"></div>
+    <div class="field"><label for="meses">Meses a cubrir</label><input id="meses" data-k="meses" type="number" min="0" step="1"></div>
+    <div class="field"><span class="lab">Monto objetivo (USD)</span><div id="fondo" style="font-family:var(--f-num);font-size:20px;padding-top:4px">—</div></div>
+  </div>
+</section>
+
+<section class="card" id="s6">
+  <div class="sec-h"><span class="n">6</span><h2>Proceso del programa</h2><span class="call">Llamadas 1–5</span></div>
+  <div class="calls" id="calls"></div>
+</section>
+
+</div>
+
+<aside class="summary">
+  <div class="sum-card">
+    <div class="eyebrow">Cartera sugerida</div>
+    <div class="model" id="sModel">Sin perfil</div>
+    <div class="client" id="sClient"></div>
+    <div class="donut-row"><svg viewBox="0 0 120 120" id="donut" role="img" aria-label="Composición de la cartera objetivo"></svg><div class="legend" id="legend"></div></div>
+    <div class="kpis">
+      <div><small>Total a invertir</small><strong id="kTotal">—</strong></div>
+      <div><small>A mover</small><strong id="kMove">—</strong></div>
+    </div>
+  </div>
+  <div class="cmp">
+    <h3>Actual vs. objetivo</h3>
+    <div class="lane"><span>Actual</span><div class="mbar" id="barA"></div></div>
+    <div class="lane"><span>Objetivo</span><div class="mbar" id="barO"></div></div>
+  </div>
+  <div class="pdf-box">
+    <strong style="font-size:14px">PDF para el cliente</strong>
+    <label class="opt"><input type="checkbox" id="optActual" checked> Incluir detalle de la cartera actual</label>
+    <label class="opt"><input type="checkbox" id="optCalls"> Incluir seguimiento de llamadas</label>
+    <button class="btn-primary" id="bPdf" type="button">Descargar PDF</button>
+    <div class="status" id="pdfStatus"></div>
+    <div class="saved" id="savedAt"></div>
+  </div>
+</aside>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+(()=>{
+const CLASES=['Renta Fija','Acciones','Bitcoin','Altcoins','Staking','Trading','Liquidez','Otros'];
+const COLORS={'Renta Fija':'#3E63DD','Acciones':'#12A594','Bitcoin':'#FF9C00','Altcoins':'#8E4EC6','Staking':'#E54666','Trading':'#0894B3','Liquidez':'#8B8D98','Otros':'#A07553'};
+const RIESGOS=['Conservador','Moderado','Agresivo'], TIPOS=['Tradicional','Híbrido','Crypto'];
+// Carteras modelo (planilla «Carteras Modelo»): RF, Acciones, BTC, Altcoins, Staking, Trading
+const MODELOS={
+ 'Tradicional Conservador':[.75,.25,0,0,0,0],'Tradicional Moderado':[.30,.60,.10,0,0,0],'Tradicional Agresivo':[0,.80,.20,0,0,0],
+ 'Híbrido Conservador':[.45,.30,.20,.05,0,0],'Híbrido Moderado':[.20,.35,.30,.10,0,.05],'Híbrido Agresivo':[.10,.25,.40,.15,0,.10],
+ 'Crypto Conservador':[0,0,.60,.10,.30,0],'Crypto Moderado':[0,0,.55,.20,.20,.05],'Crypto Agresivo':[0,0,.50,.30,.10,.10]};
+const UNIVERSO={
+ 'Renta Fija':'Bonos soberanos y corporativos (hard dollar, CER, dollar linked, duales), Letras y LECAPs, ONs. Treasuries (Bills, Notes, Bonds) y ETFs de Treasuries o Investment Grade.',
+ 'Acciones':'S&P Merval (opcional), acciones del S&P 500 y ETFs aprobados de índices, sectores o regiones.',
+ 'Bitcoin':'BTC.',
+ 'Altcoins':'ETH, BNB, SOL y XRP.',
+ 'Staking':'Rendimiento o staking en NEXO, solo si el cliente entiende el riesgo de tener cripto en un exchange.',
+ 'Trading':'A definir por el asesor según el cliente.'};
+const LLAMADAS=[['Llamada 1 · Perfil','Definir objetivo, perfil de riesgo, perfil de inversión y conocimiento.'],['Llamada 2 · Diseño de portafolio','Presentar carteras posibles y armar el portafolio target según perfil.'],['Llamada 3 · Operatoria','Que el cliente entienda cómo operar y llevar el portafolio a la práctica.'],['Llamada 4 · Autogestión y planificación','Repasar el trabajo, resolver dudas y planificar la autonomía del cliente.'],['Llamada 5 · Cierre','Balance del programa, próximos pasos y feedback.']];
+const ESTADOS=['Pendiente','Agendada','Completado'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf0=new Intl.NumberFormat('es-AR',{maximumFractionDigits:0});
+const usd=v=>'US$ '+nf0.format(Math.round(v||0));
+const pct=v=>(Math.round((v||0)*1000)/10).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:1})+'%';
+const uid=()=>Math.random().toString(36).slice(2,10);
+const today=()=>new Date().toISOString().slice(0,10);
+
+function blank(){return{id:uid(),cliente:'',asesor:'',fecha:today(),horizonte:'',objetivo:'',riesgo:'',inversion:'',conocimiento:'',tc:1450,aporte:0,rows:[{activo:'',clase:'Renta Fija',moneda:'USD',monto:'',notas:''}],ajuste:{},instrumentos:{},gasto:'',meses:6,llamadas:LLAMADAS.map(()=>({estado:'Pendiente',notas:''})),ejemplo:false}}
+function ejemplo(){const f=blank();Object.assign(f,{cliente:'Ejemplo Cliente',asesor:'Nombre del asesor',fecha:'2026-09-21',horizonte:'Largo plazo (+5 años)',objetivo:'Hacer crecer el capital a largo plazo con exposición diversificada.',riesgo:'Moderado',inversion:'Híbrido',conocimiento:'Intermedio',tc:1450,ejemplo:true,
+ rows:[{activo:'Bono AL30',clase:'Renta Fija',moneda:'USD',monto:4500,notas:''},{activo:'ETF SPY',clase:'Acciones',moneda:'USD',monto:6000,notas:''},{activo:'Bitcoin',clase:'Bitcoin',moneda:'USD',monto:5200,notas:''},{activo:'Ethereum',clase:'Altcoins',moneda:'USD',monto:1800,notas:''},{activo:'NEXO staking',clase:'Staking',moneda:'USD',monto:1200,notas:''},{activo:'Efectivo',clase:'Liquidez',moneda:'ARS',monto:1450000,notas:''}],
+ instrumentos:{'Renta Fija':'AL30 / ONs hard dollar / T-Bills','Acciones':'SPY / QQQ / acciones S&P 500','Bitcoin':'BTC','Altcoins':'ETH / SOL','Staking':'NEXO','Trading':'—'},gasto:1500,meses:6});f.llamadas[0].estado='Completado';return f}
+
+// ---- almacenamiento local (este navegador) ----
+const KEY='ji-carteras-v1';
+let store={fichas:[],cur:null};
+try{const raw=localStorage.getItem(KEY);if(raw)store=JSON.parse(raw)}catch(e){}
+if(!store.fichas||!store.fichas.length){const e=ejemplo();store={fichas:[e],cur:e.id}}
+let F=store.fichas.find(f=>f.id===store.cur)||store.fichas[0];
+let saveT;
+function persist(){clearTimeout(saveT);saveT=setTimeout(()=>{F.updated=Date.now();try{localStorage.setItem(KEY,JSON.stringify(store));$('#savedAt').textContent='Guardado en este navegador · '+new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('#savedAt').textContent='No se pudo guardar en este navegador.'}},400)}
+
+// ---- cálculos ----
+function calc(){
+  const tc=+F.tc||0;
+  const rows=F.rows.map(r=>{const m=+r.monto||0;const v=!r.activo&&!m?0:(r.moneda==='ARS'?(tc?m/tc:0):m);return{...r,usd:v}});
+  const totAct=rows.reduce((a,r)=>a+r.usd,0);
+  const total=totAct+(+F.aporte||0);
+  const modelName=F.inversion&&F.riesgo?F.inversion+' '+F.riesgo:'';
+  const mv=MODELOS[modelName]||[0,0,0,0,0,0];
+  const cls=CLASES.map((c,i)=>{
+    const actUsd=rows.filter(r=>r.clase===c).reduce((a,r)=>a+r.usd,0);
+    const modelo=i<6?mv[i]:0;
+    const obj=(F.ajuste[c]!=null&&F.ajuste[c]!=='')?(+F.ajuste[c]/100):modelo;
+    const monto=obj*total, dif=monto-actUsd;
+    const accion=total===0?'':(Math.abs(dif)<total*0.01?'Mantener':(dif>0?'Comprar':'Vender'));
+    return{c,actUsd,act:totAct?actUsd/totAct:0,modelo,obj,monto,dif,accion,ajustado:F.ajuste[c]!=null&&F.ajuste[c]!==''};
+  });
+  const sumObj=cls.reduce((a,x)=>a+x.obj,0);
+  const move=cls.reduce((a,x)=>a+(x.dif>0?x.dif:0),0);
+  return{rows,totAct,total,modelName,cls,sumObj,move};
+}
+
+// ---- render ----
+function renderFichas(){
+  $('#fichas').innerHTML='<span class="lbl">Fichas</span>'+store.fichas.map(f=>`<button type="button" class="ficha" data-id="${f.id}" aria-current="${f.id===F.id}">${esc(f.cliente||'Sin nombre')}${f.ejemplo?' · ejemplo':''}</button>`).join('');
+}
+function renderMatrix(){
+  let h='<div class="ax"></div>'+TIPOS.map(t=>`<div class="ax">${t}</div>`).join('');
+  RIESGOS.forEach(r=>{h+=`<div class="ay">${r}</div>`;TIPOS.forEach(t=>{const n=t+' '+r,m=MODELOS[n];
+    h+=`<button type="button" class="mcell" data-t="${t}" data-r="${r}" aria-pressed="${F.inversion===t&&F.riesgo===r}" title="${n}"><span class="mt">${t} ${r}</span><span class="mbar">${m.map((v,i)=>v?`<i style="width:${v*100}%;background:${COLORS[CLASES[i]]}"></i>`:'').join('')}</span></button>`})});
+  $('#matrix').innerHTML=h;
+}
+function renderHoldings(){
+  $('#holdings tbody').innerHTML=F.rows.map((r,i)=>`<tr data-i="${i}">
+   <td><input id="h-a-${i}" data-f="activo" value="${esc(r.activo)}" placeholder="Ej: Bono AL30" aria-label="Activo"></td>
+   <td><select id="h-c-${i}" data-f="clase" aria-label="Clase">${CLASES.map(c=>`<option ${c===r.clase?'selected':''}>${c}</option>`).join('')}</select></td>
+   <td><select id="h-m-${i}" data-f="moneda" aria-label="Moneda"><option ${r.moneda==='USD'?'selected':''}>USD</option><option ${r.moneda==='ARS'?'selected':''}>ARS</option></select></td>
+   <td><input id="h-n-${i}" data-f="monto" type="number" min="0" step="any" value="${esc(r.monto)}" aria-label="Monto"></td>
+   <td class="num" data-o="usd"></td><td class="num" data-o="pct"></td>
+   <td><input id="h-t-${i}" data-f="notas" value="${esc(r.notas)}" aria-label="Notas"></td>
+   <td><button type="button" class="btn-ghost" data-del="${i}" aria-label="Quitar fila">✕</button></td></tr>`).join('');
+}
+function renderInst(){
+  $('#inst').innerHTML=CLASES.slice(0,6).map(c=>`<div class="cls"><span class="dot" style="background:${COLORS[c]}"></span>${c}</div>
+   <textarea id="inst-${c.replace(/\s/g,'')}" data-inst="${c}" rows="1" placeholder="Instrumentos para esta clase">${esc(F.instrumentos[c]||'')}</textarea>
+   <div class="pc" data-ipc="${c}"></div><div class="univ">Habilitado: ${UNIVERSO[c]}</div>`).join('');
+}
+function renderCalls(){
+  $('#calls').innerHTML=LLAMADAS.map(([t,d],i)=>`<div class="callrow"><div><b>${t}</b><span>${d}</span></div>
+   <select id="call-e-${i}" data-call="${i}" data-cf="estado" aria-label="Estado ${t}">${ESTADOS.map(e=>`<option ${F.llamadas[i].estado===e?'selected':''}>${e}</option>`).join('')}</select>
+   <input id="call-n-${i}" data-call="${i}" data-cf="notas" value="${esc(F.llamadas[i].notas)}" placeholder="Notas" aria-label="Notas ${t}"></div>`).join('');
+}
+function fillFields(){document.querySelectorAll('[data-k]').forEach(el=>{el.value=F[el.dataset.k]??''})}
+function barHtml(parts){return parts.filter(p=>p.v>0).map(p=>`<i style="width:${p.v*100}%;background:${COLORS[p.c]}" title="${p.c} ${pct(p.v)}"></i>`).join('')}
+function donut(parts){
+  const R=46,C=2*Math.PI*R;let off=0,s=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="currentColor" stroke-opacity=".15" stroke-width="18"/>`;
+  const tot=parts.reduce((a,p)=>a+p.v,0)||1;
+  parts.filter(p=>p.v>0).forEach(p=>{const len=p.v/tot*C;s+=`<circle cx="60" cy="60" r="${R}" fill="none" stroke="${COLORS[p.c]}" stroke-width="18" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;off+=len});
+  return s;
+}
+function update(){
+  const k=calc();
+  // holdings computed cells
+  document.querySelectorAll('#holdings tbody tr').forEach((tr,i)=>{const r=k.rows[i];tr.querySelector('[data-o=usd]').textContent=r.usd?usd(r.usd):'—';tr.querySelector('[data-o=pct]').textContent=k.totAct&&r.usd?pct(r.usd/k.totAct):'—'});
+  $('#totUsd').textContent=usd(k.totAct);$('#totPct').textContent=k.totAct?'100%':'—';
+  $('#rowsEmpty').textContent=F.rows.length?'':'Sin activos cargados. Si el cliente arranca de cero, usá «Aporte nuevo».';
+  // rebal
+  const tb=$('#rebal tbody');
+  if(tb.children.length!==CLASES.length){tb.innerHTML=CLASES.map(c=>`<tr data-c="${c}"><td><span class="dot" style="background:${COLORS[c]}"></span>${c}</td><td class="num" data-o="a"></td><td class="num" data-o="m"></td><td class="num"><input id="aj-${c.replace(/\s/g,'')}" type="number" min="0" max="100" step="0.5" data-aj="${c}" aria-label="% objetivo ${c}"></td><td class="num" data-o="mo"></td><td class="num" data-o="d"></td><td data-o="ac"></td></tr>`).join('')}
+  k.cls.forEach(x=>{const tr=tb.querySelector(`tr[data-c="${x.c}"]`);
+    tr.querySelector('[data-o=a]').textContent=pct(x.act);tr.querySelector('[data-o=m]').textContent=pct(x.modelo);
+    const inp=tr.querySelector('input');if(document.activeElement!==inp)inp.value=Math.round(x.obj*1000)/10;inp.style.borderColor=x.ajustado?'var(--accent)':'';
+    tr.querySelector('[data-o=mo]').textContent=usd(x.monto);
+    const d=tr.querySelector('[data-o=d]');d.textContent=(x.dif>0?'+':'')+usd(x.dif).replace('US$ -','-US$ ');d.className='num '+(Math.round(x.dif)>0?'pos':Math.round(x.dif)<0?'neg':'');
+    tr.querySelector('[data-o=ac]').innerHTML=x.accion?`<span class="pill ${x.accion}">${x.accion}</span>`:'';});
+  $('#rtA').textContent=pct(k.cls.reduce((a,x)=>a+x.act,0));$('#rtM').textContent=pct(k.cls.reduce((a,x)=>a+x.modelo,0));$('#rtO').textContent=pct(k.sumObj);
+  $('#rtMonto').textContent=usd(k.cls.reduce((a,x)=>a+x.monto,0));$('#rtDif').textContent=usd(k.cls.reduce((a,x)=>a+x.dif,0));
+  const sc=$('#sumCheck');
+  if(!k.modelName){sc.className='check bad';sc.textContent='Elegí perfil de riesgo e inversión'}
+  else if(Math.round(k.sumObj*10000)===10000){sc.className='check ok';sc.textContent='Suma 100%'}
+  else{sc.className='check bad';sc.textContent='Suma '+pct(k.sumObj)+' · revisar'}
+  // inst %
+  document.querySelectorAll('[data-ipc]').forEach(el=>{const x=k.cls.find(c=>c.c===el.dataset.ipc);el.textContent=pct(x.obj)});
+  // fondo
+  $('#fondo').textContent=(+F.gasto&&+F.meses)?usd(F.gasto*F.meses):'—';
+  // summary
+  $('#sModel').innerHTML=k.modelName?`${esc(F.inversion)} <em>${esc(F.riesgo)}</em>`:'Sin perfil';
+  $('#sClient').textContent=[F.cliente||'Cliente sin nombre',F.asesor&&('Asesor: '+F.asesor)].filter(Boolean).join(' · ');
+  const objParts=k.cls.map(x=>({c:x.c,v:x.obj}));
+  $('#donut').innerHTML=donut(objParts);
+  $('#legend').innerHTML=objParts.filter(p=>p.v>0).map(p=>`<div><span><span class="dot" style="background:${COLORS[p.c]}"></span>${p.c}</span><b>${pct(p.v)}</b></div>`).join('')||'<div class="empty" style="color:inherit;opacity:.7">Elegí una cartera modelo.</div>';
+  $('#kTotal').textContent=usd(k.total);$('#kMove').textContent=usd(k.move);
+  $('#barA').innerHTML=barHtml(k.cls.map(x=>({c:x.c,v:x.act})));$('#barO').innerHTML=barHtml(objParts);
+  document.querySelectorAll('.mcell').forEach(b=>b.setAttribute('aria-pressed',String(F.inversion===b.dataset.t&&F.riesgo===b.dataset.r)));
+  $('#bPdf').disabled=!k.modelName;
+  return k;
+}
+function renderAll(){renderFichas();fillFields();renderMatrix();renderHoldings();renderInst();renderCalls();update()}
+
+// ---- eventos ----
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.k){F[t.dataset.k]=t.type==='number'?(t.value===''?'':+t.value):t.value;if(t.dataset.k==='cliente')renderFichas();if(t.dataset.k==='riesgo'||t.dataset.k==='inversion'){F.ajuste={};}update();persist();return}
+  const tr=t.closest('#holdings tr[data-i]');if(tr&&t.dataset.f){const r=F.rows[+tr.dataset.i];r[t.dataset.f]=t.type==='number'?(t.value===''?'':+t.value):t.value;update();persist();return}
+  if(t.dataset.aj){F.ajuste[t.dataset.aj]=t.value===''?null:+t.value;update();persist();return}
+  if(t.dataset.inst){F.instrumentos[t.dataset.inst]=t.value;persist();return}
+  if(t.dataset.call){F.llamadas[+t.dataset.call][t.dataset.cf]=t.value;persist();return}
+});
+document.addEventListener('change',e=>{if(e.target.matches('select'))e.target.dispatchEvent(new Event('input',{bubbles:true}))},true);
+document.addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;
+  if(t.classList.contains('mcell')){F.inversion=t.dataset.t;F.riesgo=t.dataset.r;F.ajuste={};fillFields();update();persist();return}
+  if(t.dataset.del!=null){F.rows.splice(+t.dataset.del,1);renderHoldings();update();persist();return}
+  if(t.classList.contains('ficha')){F=store.fichas.find(f=>f.id===t.dataset.id);store.cur=F.id;$('#delConfirm').hidden=true;renderAll();persist();return}
+});
+$('#bAddRow').onclick=()=>{F.rows.push({activo:'',clase:'Renta Fija',moneda:'USD',monto:'',notas:''});renderHoldings();update();persist();const i=F.rows.length-1;document.getElementById('h-a-'+i)?.focus()};
+$('#bReset').onclick=()=>{F.ajuste={};update();persist()};
+$('#bNew').onclick=()=>{const f=blank();if(F.asesor&&!F.ejemplo)f.asesor=F.asesor;f.tc=F.tc||1450;store.fichas.push(f);F=f;store.cur=f.id;renderAll();persist();$('#cliente').focus()};
+$('#bDup').onclick=()=>{const f=JSON.parse(JSON.stringify(F));f.id=uid();f.cliente=(F.cliente||'Sin nombre')+' (copia)';f.ejemplo=false;store.fichas.push(f);F=f;store.cur=f.id;renderAll();persist()};
+$('#bDel').onclick=()=>{$('#delConfirm').hidden=false};
+$('#bDelNo').onclick=()=>{$('#delConfirm').hidden=true};
+$('#bDelYes').onclick=()=>{store.fichas=store.fichas.filter(f=>f.id!==F.id);if(!store.fichas.length)store.fichas.push(blank());F=store.fichas[0];store.cur=F.id;$('#delConfirm').hidden=true;renderAll();persist()};
+
+// ---- PDF ----
+let logoPng=null;
+(function(){const svg=document.querySelector('header.top svg').outerHTML.replace('<svg','<svg xmlns="http://www.w3.org/2000/svg" width="188" height="188"');const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=c.height=188;c.getContext('2d').drawImage(img,0,0,188,188);try{logoPng=c.toDataURL('image/png')}catch(e){}};img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)})();
+function donutPng(parts){const s=600,c=document.createElement('canvas');c.width=c.height=s;const g=c.getContext('2d');const cx=s/2,r=s*.40,w=s*.17;let a=-Math.PI/2;const tot=parts.reduce((x,p)=>x+p.v,0)||1;
+  parts.filter(p=>p.v>0).forEach(p=>{const da=p.v/tot*Math.PI*2;g.beginPath();g.arc(cx,cx,r,a,a+da);g.strokeStyle=COLORS[p.c];g.lineWidth=w;g.stroke();a+=da});return c.toDataURL('image/png')}
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+function fmtFecha(d){if(!d)return'';const [y,m,dd]=d.split('-');return `${dd}/${m}/${y}`}
+function buildPdf(){
+  const k=calc();const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=16,INK=[41,41,41],MUT=[110,106,128],OR=[255,156,0],LINE=[225,222,240];
+  // cabecera
+  doc.setFillColor(41,41,41);doc.rect(0,0,W,34,'F');
+  if(logoPng)doc.addImage(logoPng,'PNG',M,9,16,16);
+  doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(17);doc.text('Cartera recomendada',M+22,16.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(210,208,220);doc.text('Joven Inversor · joveninversor.com',M+22,22.5);
+  doc.setFontSize(9);doc.text(fmtFecha(F.fecha),W-M,16.5,{align:'right'});
+  doc.setFillColor(...OR);doc.rect(0,34,W,1.4,'F');
+  let y=46;
+  // cliente
+  doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(F.cliente||'Cliente',M,y);
+  y+=6;doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(...MUT);
+  doc.text([F.asesor&&('Asesor: '+F.asesor),F.horizonte,F.conocimiento&&('Conocimiento: '+F.conocimiento)].filter(Boolean).join('   ·   '),M,y);
+  if(F.objetivo){y+=7;doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('OBJETIVO',M,y);doc.setFont('helvetica','normal');doc.setFontSize(10);const l=doc.splitTextToSize(F.objetivo,W-2*M);doc.text(l,M,y+5);y+=5+l.length*4.6}
+  // bloque cartera sugerida
+  y+=6;const bh=62;doc.setFillColor(255,241,218);doc.roundedRect(M,y,W-2*M,bh,3,3,'F');
+  doc.setTextColor(...MUT);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text('CARTERA SUGERIDA',M+7,y+10);
+  doc.setTextColor(...INK);doc.setFontSize(18);doc.text(k.modelName,M+7,y+19);
+  doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(...MUT);doc.text('Perfil '+F.inversion+' · riesgo '+F.riesgo.toLowerCase(),M+7,y+25);
+  doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text('TOTAL A INVERTIR',M+7,y+36);
+  doc.setTextColor(...INK);doc.setFontSize(15);doc.text(usd(k.total),M+7,y+43);
+  const parts=k.cls.filter(x=>x.obj>0);
+  doc.addImage(donutPng(k.cls.map(x=>({c:x.c,v:x.obj}))),'PNG',M+70,y+6,50,50);
+  let ly=y+12;doc.setFontSize(9.5);
+  parts.forEach(x=>{doc.setFillColor(...hex(COLORS[x.c]));doc.roundedRect(M+128,ly-2.8,3.2,3.2,.6,.6,'F');doc.setFont('helvetica','normal');doc.setTextColor(...INK);doc.text(x.c,M+134,ly);doc.setFont('helvetica','bold');doc.text(pct(x.obj),W-M-7,ly,{align:'right'});ly+=6.2});
+  y+=bh+10;
+  // rebalanceo
+  const h2=(t,sub)=>{doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(t,M,y);if(sub){doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(sub,M,y+4.6);y+=4.6}y+=3.5};
+  const tblBase={margin:{left:M,right:M},theme:'plain',styles:{font:'helvetica',fontSize:9,textColor:INK,cellPadding:{top:2.2,bottom:2.2,left:2,right:2},lineColor:LINE,lineWidth:{bottom:.2}},headStyles:{fontStyle:'bold',fontSize:7.5,textColor:MUT,lineWidth:{bottom:.4}},footStyles:{fontStyle:'bold'}};
+  const ensure=need=>{if(y+need>280){doc.addPage();y=20}};
+  h2('Plan de rebalanceo','Qué hacer con cada clase de activo para llegar a la cartera sugerida.');
+  const rows=k.cls.filter(x=>x.obj>0||x.actUsd>0);
+  doc.autoTable({...tblBase,startY:y,
+    head:[['Clase de activo','% actual','% objetivo','Monto objetivo','Diferencia','Acción']],
+    body:rows.map(x=>[x.c,pct(x.act),pct(x.obj),usd(x.monto),(Math.round(x.dif)>0?'+':'')+usd(x.dif).replace('US$ -','-US$ '),x.accion]),
+    foot:[['Total',k.totAct?'100%':'0%',pct(k.sumObj),usd(k.cls.reduce((a,x)=>a+x.monto,0)),'','']],
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'center',fontStyle:'bold'}},
+    didParseCell:d=>{if(d.section==='head'&&d.column.index>0&&d.column.index<5)d.cell.styles.halign='right';if(d.section==='head'&&d.column.index===5)d.cell.styles.halign='center';
+      if(d.section==='body'&&d.column.index===5){d.cell.styles.textColor=d.cell.raw==='Comprar'?[18,138,92]:d.cell.raw==='Vender'?[200,55,45]:MUT}
+      if(d.section==='foot'&&d.column.index>0)d.cell.styles.halign='right'},
+    didDrawCell:d=>{if(d.section==='body'&&d.column.index===0){doc.setFillColor(...hex(COLORS[d.cell.raw]));doc.roundedRect(d.cell.x+2,d.cell.y+d.cell.height/2-1.5,3,3,.6,.6,'F')}},
+    willDrawCell:d=>{if(d.section==='body'&&d.column.index===0)d.cell.styles.cellPadding={...d.cell.styles.cellPadding,left:7}}
+  });
+  y=doc.lastAutoTable.finalY+11;
+  // instrumentos
+  const inst=k.cls.filter(x=>x.obj>0&&x.c!=='Liquidez'&&x.c!=='Otros');
+  if(inst.length){ensure(30);h2('Instrumentos sugeridos');
+    doc.autoTable({...tblBase,startY:y,head:[['Clase','Instrumentos','% objetivo']],body:inst.map(x=>[x.c,(F.instrumentos[x.c]||'').trim()||'A definir con tu asesor',pct(x.obj)]),columnStyles:{0:{cellWidth:36,fontStyle:'bold'},2:{halign:'right',cellWidth:24}},didParseCell:d=>{if(d.section==='head'&&d.column.index===2)d.cell.styles.halign='right'}});
+    y=doc.lastAutoTable.finalY+11}
+  // fondo de emergencia
+  if(+F.gasto&&+F.meses){ensure(24);h2('Fondo de emergencia');doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...INK);
+    doc.text(`Reservá ${usd(F.gasto*F.meses)} en instrumentos líquidos: ${F.meses} meses de un gasto mensual de ${usd(F.gasto)}.`,M,y+2);y+=12}
+  // cartera actual
+  if($('#optActual').checked&&k.rows.some(r=>r.usd>0)){ensure(30);h2('Tu cartera actual',F.rows.some(r=>r.moneda==='ARS')?`Tenencias en pesos valuadas a ${nf0.format(F.tc)} ARS por USD.`:'');
+    doc.autoTable({...tblBase,startY:y,head:[['Activo','Clase','Moneda','Monto','Valor USD','Peso']],body:k.rows.filter(r=>r.usd>0).map(r=>[r.activo,r.clase,r.moneda,nf0.format(+r.monto),usd(r.usd),pct(r.usd/k.totAct)]),foot:[['Total','','','',usd(k.totAct),'100%']],columnStyles:{3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},didParseCell:d=>{if((d.section==='head'||d.section==='foot')&&d.column.index>2)d.cell.styles.halign='right'}});
+    y=doc.lastAutoTable.finalY+11}
+  if($('#optCalls').checked){ensure(40);h2('Seguimiento del programa');
+    doc.autoTable({...tblBase,startY:y,head:[['Etapa','Estado','Notas']],body:LLAMADAS.map(([t],i)=>[t,F.llamadas[i].estado,F.llamadas[i].notas||'']),columnStyles:{0:{cellWidth:70,fontStyle:'bold'},1:{cellWidth:28}}});y=doc.lastAutoTable.finalY+11}
+  // pie
+  const n=doc.getNumberOfPages();
+  for(let p=1;p<=n;p++){doc.setPage(p);doc.setDrawColor(...LINE);doc.setLineWidth(.2);doc.line(M,284,W-M,284);doc.setFont('helvetica','normal');doc.setFontSize(7.2);doc.setTextColor(...MUT);
+    doc.text(doc.splitTextToSize('Cartera sugerida elaborada en el marco del programa Joven Inversor según el perfil informado por el cliente. Es una guía educativa y de referencia: los porcentajes e instrumentos finales se definen con tu asesor. Invertir implica riesgos, incluida la pérdida del capital.',W-2*M-20),M,288);
+    doc.text(`${p} / ${n}`,W-M,288,{align:'right'})}
+  return doc;
+}
+let dl=null;
+const inClaude=!!(window.claude&&window.claude.use);
+if(inClaude){claude.use('downloads').then(d=>{dl=d})}
+$('#bPdf').onclick=async()=>{
+  const st=$('#pdfStatus');
+  if(!window.jspdf){st.textContent='No se pudo cargar el generador de PDF. Recargá la página.';return}
+  st.textContent='Armando el PDF…';
+  try{const doc=buildPdf();const blob=doc.output('blob');
+    const name=('Cartera '+(F.cliente||'cliente')+' - Joven Inversor.pdf').replace(/[\\/:*?"<>|]/g,'');
+    if(!dl&&inClaude){dl=await claude.use('downloads')}
+    if(dl){await dl.save({filename:name,data:blob})}else{doc.save(name)}
+    st.textContent='PDF listo: '+name;
+  }catch(e){st.textContent=e&&e.code==='declined'?'Descarga cancelada.':e&&e.code==='rate_limited'?'Ya hay una descarga esperando confirmación.':'No se pudo generar el PDF'+(e&&e.message?': '+e.message:'.')}
+};
+window.__jiBuildPdf=buildPdf;
+
+renderAll();
+})();
+</script>
+
+</body>
+</html>
